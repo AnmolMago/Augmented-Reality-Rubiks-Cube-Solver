@@ -1,1 +1,1 @@
-./build && ./RCS
+./build RCS && ./RCS
