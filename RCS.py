@@ -14,6 +14,21 @@ def standardizeLines(v):
         theta -= math.pi
     return [rho, theta, -1]
 
+def distanceBetween(line1, line1):
+    extreme_x = (0,1,2,width,width-1,width-2)
+    extreme_y = (0,1,2,height,height-1,height-2)
+    y1l, y1r, x1b, x1t = extreme_xy_values(line1)
+    y2l, y2r, x2b, x2t = extreme_xy_values(line2)
+    s_thres = 30
+    if x1b in extreme_x and x2b in extreme_x and x1t in extreme_x and x2t in extreme_x:
+        return ( abs(x2b-x1b) + abs(x2t-x1t) )/2
+    elif y1l in extreme_y and y2l in extreme_y and y1r in extreme_y and y2r in extreme_y:
+        return ( abs(y2l-y1l) + abs(y2r-y1r) )/2
+    else:
+        # compute half of each line
+        # find distance between those points
+        return 0
+
 def extreme_xy_values(line):
     a = math.cos(float(line[1]))
     b = math.sin(float(line[1]))
@@ -60,7 +75,7 @@ def drawLine(img, rho, theta, color):
     y1 = int(y0 + 1000*(a))
     x2 = int(x0 - 1000*(-b))
     y2 = int(y0 - 1000*(a))
-    yl, yr, xb, xt = extreme_xy_values((rho,theta))
+    # yl, yr, xb, xt = extreme_xy_values((rho,theta))
     # cv2.line(img,(0,int(yl)),(width,int(yl)),(0,0,0),2)
     # cv2.line(img,(0,int(yr)),(width,int(yr)),(0,0,0),2)
     # cv2.line(img,(int(xb),0),(int(xb),height),(255,255,255),2)
@@ -106,13 +121,13 @@ def main():
                     continue
 
                 if (lines[i][0], lines[i][1]) in blacklist:
-                        continue
+                    continue
 
                 foundGroup = False
 
                 for j in range(0, i):
                     if (lines[j][0], lines[j][1]) in blacklist:
-                            continue
+                        continue
                     if i != 0 and are_lines_similar(lines[i], lines[j]):
                         # print "Lines: " + str(extreme_xy_values(lines[i])) + " and " + str(extreme_xy_values(lines[j])) + " are similar"
                         lines[i][2] = lines[j][2]
@@ -124,7 +139,11 @@ def main():
                     lines[i][2] = len(lineGroups)
                     lineGroups[len(lineGroups)] = [lines[i]]
 
+            avgLines = []
+
             for index, lines in lineGroups.iteritems():
+                if len(lines) == 1:
+                    continue
                 rho = 0
                 theta = 0
                 for l in lines:
@@ -133,6 +152,25 @@ def main():
                 rho /= len(lines)
                 theta /= len(lines)
                 drawLine(img, rho, theta, (0,255,0))
+                avgLines.append([rho, theta])
+
+            parallelPairs = {}
+            perpendicularFoursome = []
+            
+            for i in range(0, len(avgLines)):
+                for j in range(0, i):
+                    if i != j and abs(lines[i][1] - lines[j][1]) <= 10:
+                        avg = (avgLines[i][1] + avgLines[j][1])/2
+                        parallelPairs[avg] = [avgLines[i], avgLines[j]]
+
+            for avg_i in parallelPairs:
+                for avg_j in parallelPairs:
+                    angle_diff = abs(avg_i - avg_j)
+                    dist_diff_i = distanceBetween(parallelPairs[avg_i][0], parallelPairs[avg_i][1])
+                    dist_diff_j = distanceBetween(parallelPairs[avg_j][0], parallelPairs[avg_j][1])
+                    dist_diff = abs(dist_diff_i - dist_diff_j)
+                    if angle_diff >= 80 and angle_diff <= 100 and dist_diff <= 20:
+                        perpendicularFoursome.append([ parallelPairs[avg_i], parallelPairs[avg_j] ])
 
         elif lines is not None and len(lines) > 100:
             thres += 5
