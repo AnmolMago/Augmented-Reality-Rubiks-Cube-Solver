@@ -14,7 +14,7 @@ def standardizeLines(v):
         theta -= math.pi
     return [rho, theta, -1]
 
-def distanceBetween(line1, line1):
+def distanceBetween(line1, line2):
     extreme_x = (0,1,2,width,width-1,width-2)
     extreme_y = (0,1,2,height,height-1,height-2)
     y1l, y1r, x1b, x1t = extreme_xy_values(line1)
@@ -25,9 +25,7 @@ def distanceBetween(line1, line1):
     elif y1l in extreme_y and y2l in extreme_y and y1r in extreme_y and y2r in extreme_y:
         return ( abs(y2l-y1l) + abs(y2r-y1r) )/2
     else:
-        # compute half of each line
-        # find distance between those points
-        return 0
+        return (math.sqrt( abs(x2b-x1b)**2 + abs(y2l-y1l) ) + math.sqrt( abs(x2t-x1t)**2 + abs(y2r-y1r) ))/2
 
 def extreme_xy_values(line):
     a = math.cos(float(line[1]))
@@ -53,6 +51,7 @@ def extreme_xy_values(line):
     return int(y_left), int(y_right), int(x_bottom), int(x_top)
 
 def are_lines_similar(line1, line2):
+    # TODO BUG: lines in from of x will be classified as similar, should not!!!
     extreme_x = (0,1,2,width,width-1,width-2)
     extreme_y = (0,1,2,height,height-1,height-2)
     y1l, y1r, x1b, x1t = extreme_xy_values(line1)
@@ -85,18 +84,18 @@ def drawLine(img, rho, theta, color):
 def main():
     global height, width
     cap = cv2.VideoCapture(0)
-    thres = 100
+    thres = 40
     isBlacklist = True
     blacklist = []
     count = 0
-    eth = 40
+    eth = 55
     while True:
         ret, frame = cap.read()
         img = cv2.resize(frame, None,fx=0.5, fy=0.5, interpolation = cv2.INTER_CUBIC)
         if height == -1:
             height, width = img.shape[:2]
         black = np.zeros((height,width,3), np.uint8)
-        blur = cv2.GaussianBlur(img,(5,5),0)
+        blur = cv2.GaussianBlur(img,(7,7),0)
         gray = cv2.cvtColor(blur,cv2.COLOR_BGR2GRAY)
         edges = cv2.Canny(gray,eth, eth*3,apertureSize = 3)
         lines = cv2.HoughLines(edges,1,np.pi/45,thres)
@@ -106,15 +105,14 @@ def main():
             lineGroups = {}
 
             if not isBlacklist:
-                if len(lines) < 25:
+                if len(lines) < 35:
                     thres -= 2
                 if len(lines) > 50:
                     thres += 2
 
-            print str(thres) + "|" + str(len(lines))
+            # print str(thres) + "|" + str(len(lines))
 
             for i in range(0, len(lines)):
-                # drawLine(img, lines[i][0], lines[i][1], (0,0,255))
 
                 if isBlacklist:
                     blacklist.append((lines[i][0], lines[i][1]))
@@ -123,6 +121,7 @@ def main():
                 if (lines[i][0], lines[i][1]) in blacklist:
                     continue
 
+                # drawLine(img, lines[i][0], lines[i][1], (255,0,0))
                 foundGroup = False
 
                 for j in range(0, i):
@@ -142,8 +141,6 @@ def main():
             avgLines = []
 
             for index, lines in lineGroups.iteritems():
-                if len(lines) == 1:
-                    continue
                 rho = 0
                 theta = 0
                 for l in lines:
@@ -151,7 +148,7 @@ def main():
                     theta += l[1]
                 rho /= len(lines)
                 theta /= len(lines)
-                drawLine(img, rho, theta, (0,255,0))
+                # drawLine(img, rho, theta, (0,255,0))
                 avgLines.append([rho, theta])
 
             parallelPairs = {}
@@ -159,7 +156,7 @@ def main():
             
             for i in range(0, len(avgLines)):
                 for j in range(0, i):
-                    if i != j and abs(lines[i][1] - lines[j][1]) <= 10:
+                    if i != j and abs(avgLines[i][1] - avgLines[j][1]) <= 10:
                         avg = (avgLines[i][1] + avgLines[j][1])/2
                         parallelPairs[avg] = [avgLines[i], avgLines[j]]
 
@@ -169,8 +166,11 @@ def main():
                     dist_diff_i = distanceBetween(parallelPairs[avg_i][0], parallelPairs[avg_i][1])
                     dist_diff_j = distanceBetween(parallelPairs[avg_j][0], parallelPairs[avg_j][1])
                     dist_diff = abs(dist_diff_i - dist_diff_j)
-                    if angle_diff >= 80 and angle_diff <= 100 and dist_diff <= 20:
-                        perpendicularFoursome.append([ parallelPairs[avg_i], parallelPairs[avg_j] ])
+                    if angle_diff >= math.radians(80) and angle_diff <= math.radians(100) and dist_diff <= 10:
+                        arrLines = parallelPairs[avg_i] + parallelPairs[avg_j]
+                        perpendicularFoursome.append(arrLines)
+                        for line in arrLines:
+                            drawLine(img, line[0], line[1], (0,0,255))
 
         elif lines is not None and len(lines) > 100:
             thres += 5
@@ -182,7 +182,7 @@ def main():
         cv2.imshow('guess',edges)
         cv2.imshow('frame',img)
         count += 1
-        if count >= 10 and isBlacklist:
+        if count >= 100 and isBlacklist:
             isBlacklist = False
             eth += 10
             print "Stopped recording blacklist!!"
