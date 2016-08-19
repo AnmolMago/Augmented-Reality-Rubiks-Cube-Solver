@@ -50,6 +50,7 @@ def extreme_xy_values(line):
     return int(y_left), int(y_right), int(x_bottom), int(x_top)
 
 def are_lines_similar(line1, line2):
+    #todo lines in shape of X return true, should be false
     height, width = img.shape[:2]
     extreme_x = (0,1,2,width,width-1,width-2)
     extreme_y = (0,1,2,height,height-1,height-2)
@@ -125,7 +126,6 @@ if lines is not None:
         avgLines.append([rho, theta])
 
     parallelPairs = []
-    perpendicularFoursome = []
     
     for i in range(0, len(avgLines)):
         for j in range(0, i):
@@ -135,22 +135,9 @@ if lines is not None:
                 parallelPairs.append((avgAngle, dist, [avgLines[i], avgLines[j]]))
 
     index = 0
-    # for avg_i in parallelPairs:
-    #     for avg_j in parallelPairs:
-    #         imgNew = imgTemp.copy()
-    #         angle_diff = abs(avg_i - avg_j)
-    #         dist_diff_i = 
     #         dist_diff_j = distanceBetween(parallelPairs[avg_j][0], parallelPairs[avg_j][1])
-    #         dist_diff = abs(dist_diff_i - dist_diff_j)
-    #         print str(dist_diff_i) + " - " + str(dist_diff_j) + " = " + str(dist_diff)
-    #         if angle_diff >= math.radians(85) and angle_diff <= math.radians(95) and dist_diff <= 10:
-    #             arrLines = parallelPairs[avg_i] + parallelPairs[avg_j]
-    #             perpendicularFoursome.append(arrLines)
-    #             for line in arrLines:
-    #                 drawLine(img, line[0], line[1], (0,0,255))
-    #                 drawLine(imgNew, line[0], line[1], (0,0,255))
-    #             cv2.imwrite('lineGroup'+str(index)+'.jpg',imgNew)
-    #             index += 1 
+    intersectionPoints = []
+    perpendicularFoursome = []
 
     for i in range(0, len(parallelPairs)):
         for j in range (0, i):
@@ -169,7 +156,16 @@ if lines is not None:
                     drawLine(img, line[0], line[1], (0,0,255))
                     drawLine(imgNew, line[0], line[1], (0,0,255))
                 cv2.imwrite('lineGroup'+str(index)+'.jpg',imgNew)
-                index += 1 
+                for point in getIntersections(arrLines):
+                    if not point in intersectionPoints:
+                        intersectionPoints.append(point)
+                index += 1
+
+    #delete duplicates from crossingPoints
+
+    for lines in perpendicularFoursome:
+        expectedPoints = getExpectedPoints(arrLines)
+
 
 
 # drawLine(img, 50, 0, (0,0,255))
