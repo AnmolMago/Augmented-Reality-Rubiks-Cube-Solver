@@ -65,6 +65,22 @@ def are_lines_similar(line1, line2):
         return True
     return False
 
+def getIntersection(line1, line2):
+    r1 = line1[0]
+    r2 = line2[0]
+
+    t1 = line1[1]
+    t2 = line2[1]
+
+    # r1 = xcos(t1) + ysin(t1)
+    # r2 = xcos(t2) + ysin(t2)
+
+    # x = ( ysin(t1) - r1 ) / cos(t1) == ( ysin(t2) - r2 ) / cos(t2)
+
+def getIntersections(lines):
+    
+    return points
+
 def drawLine(img, rho, theta, color):
     height, width = img.shape[:2]
     a = math.cos(theta)
@@ -155,16 +171,18 @@ if lines is not None:
                 for line in arrLines:
                     drawLine(img, line[0], line[1], (0,0,255))
                     drawLine(imgNew, line[0], line[1], (0,0,255))
-                cv2.imwrite('lineGroup'+str(index)+'.jpg',imgNew)
                 for point in getIntersections(arrLines):
+
+                    cv2.circle(imgNew, point, 5, (255,0,0), 2)
                     if not point in intersectionPoints:
                         intersectionPoints.append(point)
+                cv2.imwrite('lineGroup'+str(index)+'.jpg',imgNew)
                 index += 1
 
     #delete duplicates from crossingPoints
 
-    for lines in perpendicularFoursome:
-        expectedPoints = getExpectedPoints(arrLines)
+    # for lines in perpendicularFoursome:
+    #     expectedPoints = getExpectedPoints(arrLines)
 
 
 
