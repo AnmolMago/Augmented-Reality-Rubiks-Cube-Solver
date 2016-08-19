@@ -181,7 +181,6 @@ def main():
                         avgAngle = (avgLines[i][1] + avgLines[j][1])/2
                         dist = distanceBetweenLines(avgLines[i], avgLines[j])
                         if dist > 50: #Lines too close together do not count
-                            print dist
                             parallelPairs.append((avgAngle, dist, [avgLines[i], avgLines[j]]))
 
             index = 0
@@ -228,7 +227,6 @@ def main():
                     topLines = lines
                     topScore = score
 
-            print topScore
             if topLines is not None:
                 for line in topLines:
                     drawLine(img, line[0], line[1], (255,255,255))
