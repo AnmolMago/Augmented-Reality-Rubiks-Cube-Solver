@@ -67,17 +67,17 @@ def are_lines_similar(line1, line2):
     return False
 
 def getIntersection(line1, line2):
-    a = np.array([[cos(line1[1]), sin(line1[1])], [cos(line2[1]), sin(line2[1])]])
+    a = np.array([[math.cos(line1[1]), math.sin(line1[1])], [math.cos(line2[1]), math.sin(line2[1])]])
     b = np.array([line1[0], line2[0]])
     x = np.linalg.solve(a, b)
     return (x[0], x[1])
 
 def getIntersections(lines):
     intersections = []
+    intersections.append(getIntersection(lines[1], lines[2]))
     intersections.append(getIntersection(lines[0], lines[2]))
     intersections.append(getIntersection(lines[0], lines[3]))
-    intersections.append(getIntersection(lines[1], lines[2]))
-    intersections.append(getIntersection(lines[1], lines[3]))
+    intersections.append(getIntersection(lines[1], lines[3])) 
     return intersections
 
 def getPointAlongLine(ends, factor):
@@ -93,18 +93,18 @@ def getExpectedPoints(isecs):
     points = []
     prev, next = 0, 1
     while prev != 4:
-        points.append(getPointAlongLine(isecs[prev], isecs[next]), float(1)/3)
-        points.append(getPointAlongLine(isecs[prev], isecs[next]), float(2)/3)
+        points.append(getPointAlongLine([isecs[prev], isecs[next]], float(1)/3))
+        points.append(getPointAlongLine([isecs[prev], isecs[next]], float(2)/3))
         prev += 1
         next += 1
         if next == 4:
             next = 0
             
-    points.append(getPointAlongLine(points[0], points[5]), float(1)/3)
-    points.append(getPointAlongLine(points[0], points[5]), float(2)/3)
+    points.append(getPointAlongLine([points[0], points[5]], float(1)/3))
+    points.append(getPointAlongLine([points[0], points[5]], float(2)/3))
 
-    points.append(getPointAlongLine(points[1], points[4]), float(1)/3)
-    points.append(getPointAlongLine(points[1], points[4]), float(2)/3)
+    points.append(getPointAlongLine([points[1], points[4]], float(1)/3))
+    points.append(getPointAlongLine([points[1], points[4]], float(2)/3))
     return points
 
 def drawLine(img, rho, theta, color):
@@ -174,11 +174,13 @@ if lines is not None:
             if i != j and abs(avgLines[i][1] - avgLines[j][1]) <= math.radians(3):
                 avgAngle = (avgLines[i][1] + avgLines[j][1])/2
                 dist = distanceBetweenLines(avgLines[i], avgLines[j])
-                parallelPairs.append((avgAngle, dist, [avgLines[i], avgLines[j]]))
+                if dist > 50: #Lines too close together do not count
+                    print dist
+                    parallelPairs.append((avgAngle, dist, [avgLines[i], avgLines[j]]))
 
     index = 0
     intersectionPoints = []
-    perpendicularFoursome = {}
+    perpendicularFoursome = []
 
     for i in range(0, len(parallelPairs)):
         for j in range (0, i):
@@ -200,14 +202,14 @@ if lines is not None:
                 intersections = getIntersections(arrLines)
                 
                 for point in intersections:
-                    cv2.circle(imgNew, point, 5, (255,0,0), 2)
+                    cv2.circle(imgNew, tuple(map(lambda x: int(x), point)), 5, (255,0,0), 2)
                     if not point in intersectionPoints:
                         intersectionPoints.append(point)
                 
                 expectedPoints = getExpectedPoints(intersections)
-                perpendicularFoursome[arrLines] = expectedPoints
+                perpendicularFoursome.append((arrLines, expectedPoints))
                 for point in expectedPoints:
-                    cv2.circle(imgNew, point, 5, (0,255,0), 7)
+                    cv2.circle(imgNew, tuple(map(lambda x: int(x), point)), 10, (0,255,0), 1)
 
                 cv2.imwrite('lineGroup'+str(index)+'.jpg',imgNew)
                 index += 1
@@ -215,17 +217,22 @@ if lines is not None:
     topLines = None
     topScore = -1
 
-    for lines, expectedPoints in perpendicularFoursome.iteritems():
+    for obj in perpendicularFoursome:
+        lines, expectedPoints = obj
         score = 0
         for ePoint in expectedPoints:
-            if pointIsReal(ePoint, intersectionPoints):
-                score += 1
+            for iPoint in intersectionPoints:
+                if math.sqrt( (ePoint[0] - iPoint[0])**2 + (ePoint[1] - iPoint[1])**2 ) < 10:
+                    score += 1
+                    break
         if score > topScore:
             topLines = lines
             topScore = score
 
+    print topScore
+
     for line in topLines:
-        drawLine(img, line[0], line[1], (0,0,255))
+        drawLine(img, line[0], line[1], (255,255,255))
 
 # drawLine(img, 50, 0, (0,0,255))
 # drawLine(img, 50, math.pi/2, (0,0,125))
