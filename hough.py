@@ -1,5 +1,6 @@
 import cv2
 import math
+import numpy as np
 
 thres = 65
 
@@ -41,7 +42,7 @@ def extreme_xy_values(line):
     y_right = y_left + slope * width
     y_left = min(max(y_left, 0), height)
     y_right = min(max(y_right, 0), height)
-    # x_bottom = y_left/float(slope)
+
     x_bottom = (y_left-y0)/slope + x0
     x_top = (y_right-y0)/slope + x0
     x_bottom = min(max(x_bottom, 0), width)
@@ -66,19 +67,44 @@ def are_lines_similar(line1, line2):
     return False
 
 def getIntersection(line1, line2):
-    r1 = line1[0]
-    r2 = line2[0]
-
-    t1 = line1[1]
-    t2 = line2[1]
-
-    # r1 = xcos(t1) + ysin(t1)
-    # r2 = xcos(t2) + ysin(t2)
-
-    # x = ( ysin(t1) - r1 ) / cos(t1) == ( ysin(t2) - r2 ) / cos(t2)
+    a = np.array([[cos(line1[1]), sin(line1[1])], [cos(line2[1]), sin(line2[1])]])
+    b = np.array([line1[0], line2[0]])
+    x = np.linalg.solve(a, b)
+    return (x[0], x[1])
 
 def getIntersections(lines):
-    
+    intersections = []
+    intersections.append(getIntersection(lines[0], lines[2]))
+    intersections.append(getIntersection(lines[0], lines[3]))
+    intersections.append(getIntersection(lines[1], lines[2]))
+    intersections.append(getIntersection(lines[1], lines[3]))
+    return intersections
+
+def getPointAlongLine(ends, factor):
+    x1, y1 = ends[0]
+    x2, y2 = ends[1]
+
+    x = x1 + (x2-x1) * factor 
+    y = y1 + (y2-y1) * factor
+
+    return x, y 
+
+def getExpectedPoints(isecs):
+    points = []
+    prev, next = 0, 1
+    while prev != 4:
+        points.append(getPointAlongLine(isecs[prev], isecs[next]), float(1)/3)
+        points.append(getPointAlongLine(isecs[prev], isecs[next]), float(2)/3)
+        prev += 1
+        next += 1
+        if next == 4:
+            next = 0
+            
+    points.append(getPointAlongLine(points[0], points[5]), float(1)/3)
+    points.append(getPointAlongLine(points[0], points[5]), float(2)/3)
+
+    points.append(getPointAlongLine(points[1], points[4]), float(1)/3)
+    points.append(getPointAlongLine(points[1], points[4]), float(2)/3)
     return points
 
 def drawLine(img, rho, theta, color):
@@ -87,11 +113,11 @@ def drawLine(img, rho, theta, color):
     b = math.sin(theta)
     x0 = a*rho
     y0 = b*rho
-    x1 = int(x0 + 1000*(-b))
-    y1 = int(y0 + 1000*(a))
-    x2 = int(x0 - 1000*(-b))
-    y2 = int(y0 - 1000*(a))
-    yl, yr, xb, xt = extreme_xy_values((rho,theta))
+    x1 = int(x0 - 1000*b)
+    x2 = int(x0 + 1000*b)
+    y1 = int(y0 + 1000*a)
+    y2 = int(y0 - 1000*a)
+    # yl, yr, xb, xt = extreme_xy_values((rho,theta))
     # cv2.line(img,(0,int(yl)),(width,int(yl)),(0,0,0),2)
     # cv2.line(img,(0,int(yr)),(width,int(yr)),(0,0,0),2)
     # cv2.line(img,(int(xb),0),(int(xb),height),(255,255,255),2)
@@ -151,9 +177,8 @@ if lines is not None:
                 parallelPairs.append((avgAngle, dist, [avgLines[i], avgLines[j]]))
 
     index = 0
-    #         dist_diff_j = distanceBetween(parallelPairs[avg_j][0], parallelPairs[avg_j][1])
     intersectionPoints = []
-    perpendicularFoursome = []
+    perpendicularFoursome = {}
 
     for i in range(0, len(parallelPairs)):
         for j in range (0, i):
@@ -167,24 +192,40 @@ if lines is not None:
             dist_diff = abs(parallelPairs[i][1] - parallelPairs[j][1])
             if angle_diff >= math.radians(80) and angle_diff <= math.radians(100) and dist_diff <= 20:
                 arrLines = parallelPairs[i][2] + parallelPairs[j][2]
-                perpendicularFoursome.append(arrLines)
+                
                 for line in arrLines:
                     drawLine(img, line[0], line[1], (0,0,255))
                     drawLine(imgNew, line[0], line[1], (0,0,255))
-                for point in getIntersections(arrLines):
-
+                
+                intersections = getIntersections(arrLines)
+                
+                for point in intersections:
                     cv2.circle(imgNew, point, 5, (255,0,0), 2)
                     if not point in intersectionPoints:
                         intersectionPoints.append(point)
+                
+                expectedPoints = getExpectedPoints(intersections)
+                perpendicularFoursome[arrLines] = expectedPoints
+                for point in expectedPoints:
+                    cv2.circle(imgNew, point, 5, (0,255,0), 7)
+
                 cv2.imwrite('lineGroup'+str(index)+'.jpg',imgNew)
                 index += 1
 
-    #delete duplicates from crossingPoints
+    topLines = None
+    topScore = -1
 
-    # for lines in perpendicularFoursome:
-    #     expectedPoints = getExpectedPoints(arrLines)
+    for lines, expectedPoints in perpendicularFoursome.iteritems():
+        score = 0
+        for ePoint in expectedPoints:
+            if pointIsReal(ePoint, intersectionPoints):
+                score += 1
+        if score > topScore:
+            topLines = lines
+            topScore = score
 
-
+    for line in topLines:
+        drawLine(img, line[0], line[1], (0,0,255))
 
 # drawLine(img, 50, 0, (0,0,255))
 # drawLine(img, 50, math.pi/2, (0,0,125))
