@@ -51,18 +51,24 @@ def extreme_xy_values(line):
     return int(y_left), int(y_right), int(x_bottom), int(x_top)
 
 def are_lines_similar(line1, line2):
-    #todo lines in shape of X return true, should be false
+
+    if abs(line1[1] - line2[1]) > math.radians(20):
+        return False
+
     height, width = img.shape[:2]
     extreme_x = (0,1,2,width,width-1,width-2)
     extreme_y = (0,1,2,height,height-1,height-2)
     y1l, y1r, x1b, x1t = extreme_xy_values(line1)
     y2l, y2r, x2b, x2t = extreme_xy_values(line2)
-    s_thres = 30
+    s_thres = 35
     if abs(y2r-y1r) < s_thres and abs(y2l-y1l) < s_thres and x1b in extreme_x and x2b in extreme_x and x1t in extreme_x and x2t in extreme_x:
+        # print "1"
         return True
     if abs(x2b-x1b) < s_thres and abs(x2t-x1t) < s_thres and y1l in extreme_y and y2l in extreme_y and y1r in extreme_y and y2r in extreme_y:
+        # print "2"
         return True
     if abs(y2r-y1r) < s_thres and abs(y2l-y1l) < s_thres and abs(x2b-x1b) < s_thres and abs(x2t-x1t) < s_thres:
+        # print "3"
         return True
     return False
 
@@ -124,7 +130,7 @@ def drawLine(img, rho, theta, color):
     # cv2.line(img,(int(xt),0),(int(xt),height),(255,255,255),2)
     cv2.line(img,(x1,y1),(x2,y2),color,2)
 
-frame = cv2.imread('2.jpg')
+frame = cv2.imread('3.jpg')
 img = cv2.resize(frame, None,fx=0.5, fy=0.5, interpolation = cv2.INTER_CUBIC)
 blur = cv2.GaussianBlur(img,(3,3),0)
 gray = cv2.cvtColor(blur,cv2.COLOR_BGR2GRAY)
@@ -137,14 +143,12 @@ if lines is not None:
     lineGroups = {}
     imgTemp = img.copy()
 
-    for i in range(0,len(lines)):#6,7
+    for i in range(0,len(lines)):
         foundGroup = False
+        drawLine(img, lines[i][0], lines[i][1], (255,0,0))
 
         for j in range(0, i+1):
-            drawLine(img, lines[i][0], lines[i][1], (255,0,0))
-            print str(lines[i][0]) +" | "+ str(lines[i][1])
             if i != j and are_lines_similar(lines[i], lines[j]):
-                # print "Lines: " + str(extreme_xy_values(lines[i])) + " and " + str(extreme_xy_values(lines[j])) + " are similar"
                 lines[i][2] = lines[j][2]
                 lineGroups[lines[j][2]].append(lines[i])
                 foundGroup = True
@@ -154,6 +158,7 @@ if lines is not None:
             lines[i][2] = len(lineGroups)
             lineGroups[len(lineGroups)] = [lines[i]]
 
+    #TODO it is a possibility that two groups should actually be the same group
     print "here0: " + str(len(lines))
 
     avgLines = []
@@ -161,6 +166,7 @@ if lines is not None:
         imgNew = imgTemp.copy()
         rho = 0
         theta = 0
+        print "Group " + str(index)
         for l in lines:
             rho += l[0]
             theta += l[1]
@@ -168,82 +174,99 @@ if lines is not None:
 
         rho /= len(lines)
         theta /= len(lines)
+        if index == 5 or index == 2:
+            print str(index) + " | " + str((rho,theta))
         drawLine(img, rho, theta, (0,255,0))
         drawLine(imgNew, rho, theta, (0,255,0))
         avgLines.append([rho, theta])
         cv2.imwrite('lineGroup'+str(index)+'.jpg',imgNew)
 
-#     parallelPairs = []
+    parallelPairs = []
     
-#     for i in range(0, len(avgLines)):
-#         for j in range(0, i+1):
-#             if i != j and abs(avgLines[i][1] - avgLines[j][1]) <= math.radians(3):
-#                 avgAngle = (avgLines[i][1] + avgLines[j][1])/2
-#                 dist = distanceBetweenLines(avgLines[i], avgLines[j])
-#                 if dist > 50: #Lines too close together do not count
-#                     parallelPairs.append((avgAngle, dist, [avgLines[i], avgLines[j]]))
+    for i in range(0, len(avgLines)):
+        for j in range(0, i+1):
+            angles = (avgLines[i][1],  avgLines[j][1])
+            angles = map(lambda a: a if a > 0 else (a + math.pi), angles)
+            angle_diff = abs(angles[0] - angles[1])
+            if i != j and angle_diff <= math.radians(5):
+                avgAngle = (angles[0] + angles[1])/2
+                dist = distanceBetweenLines(avgLines[i], avgLines[j])
+                if dist > 50: #Lines too close together do not count
+                    parallelPairs.append((avgAngle, dist, [avgLines[i], avgLines[j]]))
 
-#     index = 0
-#     intersectionPoints = []
-#     perpendicularFoursome = []
+    index = 0
+    intersectionPoints = []
+    perpendicularFoursome = []
 
-#     for i in range(0, len(parallelPairs)):
-#         for j in range (0, i+1):
-#             if i == j:
-#                 continue
+    print "len(parallelPairs): " + str(len(parallelPairs))  
+    for i in range(0, len(parallelPairs)):
+        for j in range (0, i+1):
+            if i == j:
+                continue
 
-#             l1 = parallelPairs[i]
-#             l2 = parallelPairs[j]
-#             imgNew = imgTemp.copy()
-#             angle_diff = abs(parallelPairs[i][0] - parallelPairs[j][0])
-#             dist_diff = abs(parallelPairs[i][1] - parallelPairs[j][1])
-#             print "here1"
-#             if angle_diff >= math.radians(80) and angle_diff <= math.radians(100) and dist_diff <= 20:
-#                 print "here2"
-#                 arrLines = parallelPairs[i][2] + parallelPairs[j][2]
+            l1 = parallelPairs[i]
+            l2 = parallelPairs[j]
+            imgNew = imgTemp.copy()
+            angle_diff = abs(parallelPairs[i][0] - parallelPairs[j][0])
+            dist_diff = abs(parallelPairs[i][1] - parallelPairs[j][1])
+            if i == 10:
+                print str((i,j)) + "|" + str(angle_diff) + "|" + str(dist_diff)
+            if angle_diff >= math.radians(80) and angle_diff <= math.radians(100) and dist_diff <= 20:
+                arrLines = parallelPairs[i][2] + parallelPairs[j][2]
                 
-#                 for line in arrLines:
-#                     drawLine(img, line[0], line[1], (0,0,255))
-#                     drawLine(imgNew, line[0], line[1], (0,0,255))
+                for line in arrLines:
+                    drawLine(img, line[0], line[1], (0,0,255))
+                    drawLine(imgNew, line[0], line[1], (0,0,255))
                 
-#                 intersections = getIntersections(arrLines)
+                intersections = getIntersections(arrLines)
                 
-#                 for point in intersections:
-#                     cv2.circle(imgNew, tuple(map(lambda x: int(x), point)), 5, (255,0,0), 2)
-#                     if not point in intersectionPoints:
-#                         intersectionPoints.append(point)
+                for point in intersections:
+                    cv2.circle(imgNew, tuple(map(lambda x: int(x), point)), 5, (255,0,0), 2)
+                    if not point in intersectionPoints:
+                        intersectionPoints.append(point)
                 
-#                 expectedPoints = getExpectedPoints(intersections)
-#                 perpendicularFoursome.append((arrLines, expectedPoints))
-#                 for point in expectedPoints:
-#                     cv2.circle(imgNew, tuple(map(lambda x: int(x), point)), 10, (0,255,0), 1)
+                expectedPoints = getExpectedPoints(intersections)
+                perpendicularFoursome.append((arrLines, expectedPoints))
+                for point in expectedPoints:
+                    cv2.circle(imgNew, tuple(map(lambda x: int(x), point)), 10, (0,255,0), 1)
 
-#                 cv2.imwrite('lineGroup'+str(index)+'.jpg',imgNew)
-#                 index += 1
+                if index == 2:
+                    print "~~~~~~~~~~~~"
+                    print i
+                    print j
+                    print "~~~~~"
 
-#     topLines = None
-#     topScore = -1
+                cv2.imwrite('l4some'+str(index)+'.jpg',imgNew)
+                index += 1
 
-#     for obj in perpendicularFoursome:
-#         lines, expectedPoints = obj
-#         score = 0
-#         for ePoint in expectedPoints:
-#             for iPoint in intersectionPoints:
-#                 if math.sqrt( (ePoint[0] - iPoint[0])**2 + (ePoint[1] - iPoint[1])**2 ) < 10:
-#                     score += 1
-#                     break
-#         if score > topScore:
-#             topLines = lines
-#             topScore = score
+    topLines = None
+    topScore = -1
 
-#     if topLines is not None:
-#         for line in topLines:
-#             drawLine(img, line[0], line[1], (255,255,255))
+    for obj in perpendicularFoursome:
+        lines, expectedPoints = obj
+        score = 0
+        for ePoint in expectedPoints:
+            for iPoint in intersectionPoints:
+                if math.sqrt( (ePoint[0] - iPoint[0])**2 + (ePoint[1] - iPoint[1])**2 ) < 10:
+                    score += 1
+                    break
+        if score > topScore:
+            topLines = lines
+            topScore = score
 
-# drawLine(img, 250, 0.733038, (0,0,255))
-# drawLine(img, 250, 0.8, (0,0,255))
+    print "topScore is " + str(topScore)
 
-# print are_lines_similar((250, 0.733038), (245, 0.8))
+    if topLines is not None and topScore > 0:
+        for line in topLines:
+            drawLine(img, line[0], line[1], (255,255,255))
+
+# l10, l11 = (105.0, -0.785)
+# l20, l21 = (82.0, -0.85521140893036929)
+
+# drawLine(img, l10, l11, (0,0,255))
+# drawLine(img, l20, l21, (0,0,255))
+
+# print are_lines_similar((l10, l11), (l20, l21))
 
 # drawLine(img, 150, math.radians(45), (0,255,0))
 # drawLine(img, 155, math.radians(50), (0,255,0))
