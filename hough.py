@@ -127,7 +127,7 @@ def drawLine(img, rho, theta, color):
     # cv2.line(img,(int(xt),0),(int(xt),height),(255,255,255),2)
     cv2.line(img,(x1,y1),(x2,y2),color,2)
 
-frame = cv2.imread('2.jpg')
+frame = cv2.imread('0.jpg')
 img = cv2.resize(frame, None,fx=0.5, fy=0.5, interpolation = cv2.INTER_CUBIC)
 blur = cv2.GaussianBlur(img,(3,3),0)
 gray = cv2.cvtColor(blur,cv2.COLOR_BGR2GRAY)
@@ -136,7 +136,7 @@ edges = cv2.Canny(gray,eth,eth*3,apertureSize = 3)
 lines = cv2.HoughLines(edges,1,math.pi/180,thres)
 
 for f in os.listdir("."):
-    if f.startswith("l4some") or f.startswith("lineGroup"):
+    if f.startswith("l4some") or f.startswith("lineGroup") or f.startswith("lparallel"):
         os.remove(f)
 
 debug = False
@@ -149,7 +149,7 @@ if lines is not None and not debug:
 
     for i in range(0,len(lines)):
         foundGroup = False
-        drawLine(img, lines[i][0], lines[i][1], (255,0,0))
+        # drawLine(img, lines[i][0], lines[i][1], (255,0,0))
 
         for j in range(0, i+1):
             if i != j and are_lines_similar(lines[i], lines[j]):
@@ -189,16 +189,24 @@ if lines is not None and not debug:
     
     for i in range(0, len(avgLines)):
         for j in range(0, i+1):
-            angles = (avgLines[i][1],  avgLines[j][1])
-            angles = map(lambda a: a if a > 0 else (a + math.pi), angles)
-            angle_diff = abs(angles[0] - angles[1])
-            if i != j and angle_diff <= math.radians(5):
+            # angles = (avgLines[i][1],  avgLines[j][1])
+            # angles = map(lambda a: a if a > 0 else (a + math.pi), angles)
+            # angle_diff = abs(angles[0] - angles[1])
+            angle_diff = abs(avgLines[i][1] - avgLines[j][1])
+            if i != j and angle_diff <= math.radians(7):
                 avgAngle = (angles[0] + angles[1])/2
                 dist = distanceBetweenLines(avgLines[i], avgLines[j])
-                if dist > 50: #Lines too close together do not count
+                if dist > 20: #Lines too close together do not count
                     parallelPairs.append((avgAngle, dist, [avgLines[i], avgLines[j]]))
 
-    index = 0
+    for i in range(0, len(parallelPairs)):
+        lines = parallelPairs[i]
+        imgNew = imgTemp.copy()
+        for line in lines[2]:
+            drawLine(imgNew, line[0], line[1], (0,0,0))
+        print (i, lines[1])
+        cv2.imwrite('lparallel'+str(i)+'.jpg',imgNew)
+
     intersectionPoints = []
     perpendicularFoursome = []
 
@@ -209,11 +217,22 @@ if lines is not None and not debug:
 
             l1 = parallelPairs[i]
             l2 = parallelPairs[j]
+            if l1[1] < 75 or l2[1] < 75:
+                continue
+            unique = True
+            for line in l1[2]:
+                if line in l2[2]:
+                    unique = False
+                    break
+            if not unique:
+                continue
             imgNew = imgTemp.copy()
+            drawLine(imgNew, l1[2][0][0], l1[2][0][1], (0,0,255))
+            drawLine(imgNew, l2[2][0][0], l2[2][0][1], (0,0,255))
+            drawLine(imgNew, l1[2][1][0], l1[2][1][1], (0,0,255))
+            drawLine(imgNew, l2[2][1][0], l2[2][1][1], (0,0,255))
             angle_diff = abs(parallelPairs[i][0] - parallelPairs[j][0])
             dist_diff = abs(parallelPairs[i][1] - parallelPairs[j][1])
-            if i == 10:
-                print str((i,j)) + "|" + str(angle_diff) + "|" + str(dist_diff)
             if angle_diff >= math.radians(80) and angle_diff <= math.radians(100) and dist_diff <= 20:
                 arrLines = parallelPairs[i][2] + parallelPairs[j][2]
                 
@@ -232,9 +251,7 @@ if lines is not None and not debug:
                 perpendicularFoursome.append((arrLines, expectedPoints))
                 for point in expectedPoints:
                     cv2.circle(imgNew, tuple(map(lambda x: int(x), point)), 10, (0,255,0), 1)
-
-                cv2.imwrite('l4some'+str(index)+'.jpg',imgNew)
-                index += 1
+                cv2.imwrite('l4some'+str(i)+','+str(j)+'.jpg',imgNew)
 
     topLines = None
     topScore = -1
@@ -256,34 +273,37 @@ if lines is not None and not debug:
     if topScore > 0:
         for line in topLines:
             drawLine(img, line[0], line[1], (255,255,255))
+else:
+    l10, l11 = (61.0, -0.052359970408030421)
+    l20, l21 = (155.0, 0.034906584769487381)
 
-# l10, l11 = (23.647058823529413, -0.84391806779859802)
-# l20, l21 = (43.799999999999997, -0.80808747609192932)
+    drawLine(img, l10, l11, (0,0,255))
+    drawLine(img, l20, l21, (0,0,255))
 
-# drawLine(img, l10, l11, (0,0,255))
-# drawLine(img, l20, l21, (0,0,255))
+    print are_lines_similar((l10, l11), (l20, l21))
+    print "angle_diff: " + str(abs(l11 - l21))
+    print "avg angle: " + str((l11 + l21)/2)
+    print "distance: " + str(distanceBetweenLines([l10, l11], [l20, l21]))
 
-# print are_lines_similar((l10, l11), (l20, l21))
+    # drawLine(img, 150, math.radians(45), (0,255,0))
+    # drawLine(img, 155, math.radians(50), (0,255,0))
 
-# drawLine(img, 150, math.radians(45), (0,255,0))
-# drawLine(img, 155, math.radians(50), (0,255,0))
+    # drawLine(img, 150, math.radians(85), (0,255,0))
+    # drawLine(img, 155, math.radians(90), (0,255,0))
 
-# drawLine(img, 150, math.radians(85), (0,255,0))
-# drawLine(img, 155, math.radians(90), (0,255,0))
+    # drawLine(img, 150, math.radians(125), (0,255,0))
+    # drawLine(img, 100, 0, (0,255,0))
+    # drawLine(img, 155, math.radians(145), (0,255,0))
 
-# drawLine(img, 150, math.radians(125), (0,255,0))
-# drawLine(img, 100, 0, (0,255,0))
-# drawLine(img, 155, math.radians(145), (0,255,0))
+    # drawLine(img, -100, math.radians(150), (0,255,0))
+    # drawLine(img, -100, math.radians(165), (0,255,0))
+    # drawLine(img, 100, math.pi-math.radians(165), (0,255,0))
 
-# drawLine(img, -100, math.radians(150), (0,255,0))
-# drawLine(img, -100, math.radians(165), (0,255,0))
-# drawLine(img, 100, math.pi-math.radians(165), (0,255,0))
+    # drawLine(img, 100, 0, (0,255,0))
+    # drawLine(img, -110, math.pi, (0,255,0))
 
-# drawLine(img, 100, 0, (0,255,0))
-# drawLine(img, -110, math.pi, (0,255,0))
-
-# drawLine(img, -110, math.pi-math.radians(10), (0,255,0))
-# drawLine(img, 100, -math.radians(10), (0,255,0))
+    # drawLine(img, -110, math.pi-math.radians(10), (0,255,0))
+    # drawLine(img, 100, -math.radians(10), (0,255,0))
 
 cv2.imwrite('hcanny.jpg',edges)
 cv2.imwrite('hlines.jpg',img)
