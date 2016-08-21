@@ -1,5 +1,6 @@
 import os
 import cv2
+import time
 import math
 import numpy as np
 
@@ -126,13 +127,26 @@ def drawLine(img, rho, theta, color):
 
 cap = cv2.VideoCapture(0)
 def main():
+    for f in os.listdir("."):
+        if f.startswith("l4some") or f.startswith("lineGroup") or f.startswith("lparallel"):
+            os.remove(f)
     global height, width
+    timing = {}
+    avgCount = {}
+    def increaseTime(key, time):
+        timing[key] = timing.get(key, 0) + time
+        avgCount[key] = avgCount.get(key, 0) + 1
+    def getAvgTime(key):
+        if not key in timing:
+            return -1
+        return str(float(timing[key])/avgCount[key])
     thres = 40
     isBlacklist = True
     blacklist = []
     count = 0
-    eth = 55
+    eth = 65
     while True:
+        start = time.time()
         ret, frame = cap.read()
         img = cv2.resize(frame, None,fx=0.5, fy=0.5, interpolation = cv2.INTER_CUBIC)
         if height == -1:
@@ -153,14 +167,6 @@ def main():
                     thres += 2
 
             for i in range(0,len(lines)):
-
-                if isBlacklist:
-                    blacklist.append((lines[i][0], lines[i][1]))
-                    continue
-
-                if (lines[i][0], lines[i][1]) in blacklist:
-                    continue
-
                 foundGroup = False
                 # drawLine(img, lines[i][0], lines[i][1], (255,0,0))
 
@@ -187,7 +193,7 @@ def main():
 
                 rho /= len(lines)
                 theta /= len(lines)
-                # drawLine(img, rho, theta, (0,255,0))
+                drawLine(img, rho, theta, (0,255,0))
                 similarExists = False
                 for avgLine in avgLines:
                     if are_lines_similar(avgLine, [rho, theta]):
@@ -195,7 +201,9 @@ def main():
                         break
                 if not similarExists:
                     avgLines.append([rho, theta])
-
+            
+            avgTime = time.time()
+            increaseTime("avg", avgTime-start)
             parallelPairs = []
             
             for i in range(0, len(avgLines)):
@@ -209,6 +217,8 @@ def main():
                         if dist > 20: #Lines too close together do not count
                             parallelPairs.append((avgAngle, dist, [avgLines[i], avgLines[j]]))
 
+            paraTime = time.time()
+            increaseTime("parapair", paraTime-avgTime)
             index = 0
             intersectionPoints = []
             perpendicularFoursome = []
@@ -253,6 +263,8 @@ def main():
 
                         index += 1
 
+            perpTime = time.time()
+            increaseTime("perpsome", perpTime-paraTime)
             topLines = None
             topScore = -1
 
@@ -268,10 +280,11 @@ def main():
                     topLines = lines
                     topScore = score
 
-            if not isBlacklist:
-                print "topScore is " + str(topScore)
+            print "topScore is " + str(topScore)
 
-            if topScore >= 5:
+            guessTime = time.time()
+            increaseTime("guess", guessTime-perpTime)
+            if topScore >= 3:
                 for line in topLines:
                     drawLine(img, line[0], line[1], (255,255,255))
 
@@ -284,13 +297,13 @@ def main():
 
         # cv2.imshow('guess',edges)
         cv2.imshow('frame',img)
-        count += 1
-        if count >= 100 and isBlacklist:
-            isBlacklist = False
-            eth += 10
-            print "Stopped recording blacklist!!"
         if cv2.waitKey(10) & 0xFF == ord('q'):
             break
+    
+    print "avg lines: " + getAvgTime("avg")
+    print "parallelPairs: " + getAvgTime("parapair")
+    print "perpendicularFoursome: " + getAvgTime("perpsome")
+    print "guess: " + getAvgTime("guess")
 
 if __name__ == '__main__':
     main()
