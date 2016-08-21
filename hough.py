@@ -1,3 +1,4 @@
+import os
 import cv2
 import math
 import numpy as np
@@ -18,7 +19,6 @@ def distanceBetweenLines(line1, line2):
     extreme_y = (0,1,2,height,height-1,height-2)
     y1l, y1r, x1b, x1t = extreme_xy_values(line1)
     y2l, y2r, x2b, x2t = extreme_xy_values(line2)
-    s_thres = 30
     if x1b in extreme_x and x2b in extreme_x and x1t in extreme_x and x2t in extreme_x:
         return ( abs(y2l-y1l) + abs(y2r-y1r) )/2
     elif y1l in extreme_y and y2l in extreme_y and y1r in extreme_y and y2r in extreme_y:
@@ -52,24 +52,21 @@ def extreme_xy_values(line):
 
 def are_lines_similar(line1, line2):
 
-    if abs(line1[1] - line2[1]) > math.radians(20):
+    if abs(line1[1] - line2[1]) > math.radians(5):
         return False
-
     height, width = img.shape[:2]
     extreme_x = (0,1,2,width,width-1,width-2)
     extreme_y = (0,1,2,height,height-1,height-2)
     y1l, y1r, x1b, x1t = extreme_xy_values(line1)
     y2l, y2r, x2b, x2t = extreme_xy_values(line2)
-    s_thres = 35
-    if abs(y2r-y1r) < s_thres and abs(y2l-y1l) < s_thres and x1b in extreme_x and x2b in extreme_x and x1t in extreme_x and x2t in extreme_x:
-        # print "1"
+    s_thres = 30
+    if abs(y2r-y1r+y2l-y1l) < s_thres and x1b in extreme_x and x2b in extreme_x and x1t in extreme_x and x2t in extreme_x:
         return True
-    if abs(x2b-x1b) < s_thres and abs(x2t-x1t) < s_thres and y1l in extreme_y and y2l in extreme_y and y1r in extreme_y and y2r in extreme_y:
-        # print "2"
+    if abs(x2b-x1b+x2t-x1t) < s_thres and y1l in extreme_y and y2l in extreme_y and y1r in extreme_y and y2r in extreme_y:
         return True
-    if abs(y2r-y1r) < s_thres and abs(y2l-y1l) < s_thres and abs(x2b-x1b) < s_thres and abs(x2t-x1t) < s_thres:
-        # print "3"
+    if abs(y2r-y1r+y2l-y1l) < s_thres and abs(x2b-x1b+x2t-x1t) < s_thres:
         return True
+    # print str(math.degrees(abs(line1[1] - line2[1]))) + " | " + str(abs(y2r-y1r+y2l-y1l)) + " | " + str(abs(x2b-x1b+x2t-x1t))
     return False
 
 def getIntersection(line1, line2):
@@ -130,7 +127,7 @@ def drawLine(img, rho, theta, color):
     # cv2.line(img,(int(xt),0),(int(xt),height),(255,255,255),2)
     cv2.line(img,(x1,y1),(x2,y2),color,2)
 
-frame = cv2.imread('3.jpg')
+frame = cv2.imread('2.jpg')
 img = cv2.resize(frame, None,fx=0.5, fy=0.5, interpolation = cv2.INTER_CUBIC)
 blur = cv2.GaussianBlur(img,(3,3),0)
 gray = cv2.cvtColor(blur,cv2.COLOR_BGR2GRAY)
@@ -138,7 +135,14 @@ eth = 55
 edges = cv2.Canny(gray,eth,eth*3,apertureSize = 3)
 lines = cv2.HoughLines(edges,1,math.pi/180,thres)
 
-if lines is not None:
+for f in os.listdir("."):
+    if f.startswith("l4some") or f.startswith("lineGroup"):
+        os.remove(f)
+
+debug = False
+
+if lines is not None and not debug:
+
     lines = map(standardizeLines, lines)
     lineGroups = {}
     imgTemp = img.copy()
@@ -158,15 +162,11 @@ if lines is not None:
             lines[i][2] = len(lineGroups)
             lineGroups[len(lineGroups)] = [lines[i]]
 
-    #TODO it is a possibility that two groups should actually be the same group
-    print "here0: " + str(len(lines))
-
     avgLines = []
     for index, lines in lineGroups.iteritems():
         imgNew = imgTemp.copy()
         rho = 0
         theta = 0
-        print "Group " + str(index)
         for l in lines:
             rho += l[0]
             theta += l[1]
@@ -174,12 +174,16 @@ if lines is not None:
 
         rho /= len(lines)
         theta /= len(lines)
-        if index == 5 or index == 2:
-            print str(index) + " | " + str((rho,theta))
         drawLine(img, rho, theta, (0,255,0))
         drawLine(imgNew, rho, theta, (0,255,0))
-        avgLines.append([rho, theta])
-        cv2.imwrite('lineGroup'+str(index)+'.jpg',imgNew)
+        similarExists = False
+        for avgLine in avgLines:
+            if are_lines_similar(avgLine, [rho, theta]):
+                similarExists = True
+                break
+        if not similarExists:
+            avgLines.append([rho, theta])
+            cv2.imwrite('lineGroup'+str(index)+'.jpg',imgNew)
 
     parallelPairs = []
     
@@ -198,7 +202,6 @@ if lines is not None:
     intersectionPoints = []
     perpendicularFoursome = []
 
-    print "len(parallelPairs): " + str(len(parallelPairs))  
     for i in range(0, len(parallelPairs)):
         for j in range (0, i+1):
             if i == j:
@@ -230,12 +233,6 @@ if lines is not None:
                 for point in expectedPoints:
                     cv2.circle(imgNew, tuple(map(lambda x: int(x), point)), 10, (0,255,0), 1)
 
-                if index == 2:
-                    print "~~~~~~~~~~~~"
-                    print i
-                    print j
-                    print "~~~~~"
-
                 cv2.imwrite('l4some'+str(index)+'.jpg',imgNew)
                 index += 1
 
@@ -256,12 +253,12 @@ if lines is not None:
 
     print "topScore is " + str(topScore)
 
-    if topLines is not None and topScore > 0:
+    if topScore > 0:
         for line in topLines:
             drawLine(img, line[0], line[1], (255,255,255))
 
-# l10, l11 = (105.0, -0.785)
-# l20, l21 = (82.0, -0.85521140893036929)
+# l10, l11 = (23.647058823529413, -0.84391806779859802)
+# l20, l21 = (43.799999999999997, -0.80808747609192932)
 
 # drawLine(img, l10, l11, (0,0,255))
 # drawLine(img, l20, l21, (0,0,255))
