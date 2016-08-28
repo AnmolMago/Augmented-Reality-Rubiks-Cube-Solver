@@ -145,10 +145,19 @@ def main():
     blacklist = []
     count = 0
     eth = 65
+    tracking = False
+    prevPic = None
+    prevPts = None
     while True:
+
+        if tracking:
+
+            continue
+
         start = time.time()
         ret, frame = cap.read()
         img = cv2.resize(frame, None,fx=0.5, fy=0.5, interpolation = cv2.INTER_CUBIC)
+        img_b = img.copy()
         if height == -1:
             height, width = img.shape[:2]
         black = np.zeros((height,width,3), np.uint8)
@@ -193,7 +202,7 @@ def main():
 
                 rho /= len(lines)
                 theta /= len(lines)
-                drawLine(img, rho, theta, (0,255,0))
+                # drawLine(img, rho, theta, (0,255,0))
                 similarExists = False
                 for avgLine in avgLines:
                     if are_lines_similar(avgLine, [rho, theta]):
@@ -281,6 +290,12 @@ def main():
                     topScore = score
 
             print "topScore is " + str(topScore)
+
+            if topScore == 12:
+                # start tracking
+                tracking = True
+                prevPic = img_b
+                prevPts = 
 
             guessTime = time.time()
             increaseTime("guess", guessTime-perpTime)
